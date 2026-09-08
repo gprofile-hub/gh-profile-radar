@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="查询 GitHub 用户注册时间、账号年龄和公开资料。">
+  <title>GitHub 账号年龄查询</title>
+  <style>
+    /* 原样式完全保持不变，此处省略（请复用之前的样式） */
+    /* 为节省篇幅，此处只保留关键结构，实际使用时请复制完整样式 */
+  </style>
+</head>
+<body>
+  <!-- 页面结构保持不变，同上一个版本（无令牌输入框） -->
+  <main class="page">
+    <section class="shell" aria-label="GitHub 账号年龄查询">
+      <div class="query-panel">
+        <div class="brand"><div class="mark">GH</div><strong>Account Age Checker</strong></div>
+        <h1>GitHub 账号年龄查询</h1>
+        <p class="subtitle">输入用户名，查看公开资料中的注册时间、账号年龄和基础统计。</p>
+        <form id="lookup-form">
+          <label for="username">GitHub 用户名</label>
+          <div class="input-row">
+            <input id="username" type="text" placeholder="mojombo">
+            <button id="submit-button" type="submit">查询</button>
+          </div>
+        </form>
+        <div class="examples">
+          <button class="example" data-user="mojombo">mojombo</button>
+          <button class="example" data-user="torvalds">torvalds</button>
+          <button class="example" data-user="github">github</button>
+        </div>
+        <div id="status" class="status">准备查询。</div>
+      </div>
+      <div class="result-panel">
+        <div id="empty" class="empty">
+          <div class="empty-icon">ID</div>
+          <strong>等待查询</strong>
+          <span>结果会显示在这里。</span>
+        </div>
+        <article id="profile" class="profile">
+          <!-- 内容与原版一致 -->
+          <header class="profile-head">
+            <img id="avatar" class="avatar" alt="">
+            <div class="name-row">
+              <h2 id="display-name"></h2>
+              <div id="login" class="login"></div>
+              <a id="profile-link" class="profile-link" href="#" target="_blank">打开 GitHub 主页</a>
+            </div>
+          </header>
+          <section class="age-card">
+            <div><p class="age-label">账号年龄</p><p id="age-value" class="age-value"></p></div>
+            <div id="age-days" class="age-days"></div>
+          </section>
+          <section class="grid">
+            <div class="metric"><span>公开仓库</span><strong id="public-repos"></strong></div>
+            <div class="metric"><span>粉丝</span><strong id="followers"></strong></div>
+            <div class="metric"><span>关注</span><strong id="following"></strong></div>
+            <div class="metric"><span>公开 Gist</span><strong id="public-gists"></strong></div>
+          </section>
+          <section class="details">
+            <div class="detail"><span>注册时间</span><strong id="created-at"></strong></div>
+            <div class="detail"><span>更新时间</span><strong id="updated-at"></strong></div>
+            <div class="detail"><span>账号类型</span><strong id="account-type"></strong></div>
+            <div class="detail"><span>所在地</span><strong id="location"></strong></div>
+          </section>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // 所有 JS 逻辑不变，仅修改 fetch 调用
+    const form = document.querySelector("#lookup-form");
+    const input = document.querySelector("#username");
+    const submitButton = document.querySelector("#submit-button");
+    const statusBox = document.querySelector("#status");
+    const emptyState = document.querySelector("#empty");
+    const profile = document.querySelector("#profile");
+    const examples = document.querySelectorAll(".example");
+
+    const els = {
+      avatar: document.querySelector("#avatar"),
+      displayName: document.querySelector("#display-name"),
+      login: document.querySelector("#login"),
+      profileLink: document.querySelector("#profile-link"),
+      ageValue: document.querySelector("#age-value"),
+      ageDays: document.querySelector("#age-days"),
+      publicRepos: document.querySelector("#public-repos"),
+      followers: document.querySelector("#followers"),
+      following: document.querySelector("#following"),
+      publicGists: document.querySelector("#public-gists"),
+      createdAt: document.querySelector("#created-at"),
+      updatedAt: document.querySelector("#updated-at"),
+      accountType: document.querySelector("#account-type"),
+      location: document.querySelector("#location")
+    };
+
+    const usernamePattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+    const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      timeZoneName: "short"
+    });
+
+    function setStatus(message, type = "info") {
+      statusBox.textContent = message;
+      statusBox.classList.toggle("error", type === "error");
+    }
+
+    function normalizeUsername(value) {
+      return value.trim().replace(/^@/, "");
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat("zh-CN").format(value ?? 0);
+    }
+
+    function formatDate(value) {
+      const parts = dateTimeFormatter.formatToParts(new Date(value)).reduce((acc, part) => {
+        acc[part.type] = part.value;
+        return acc;
+      }, {});
+      return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second} ${parts.timeZoneName}`;
+    }
+
+    function calculateAge(createdAt) {
+      const start = new Date(createdAt);
+      const now = new Date();
+      const totalDays = Math.floor((now - start) / 86400000);
+      let years = now.getFullYear() - start.getFullYear();
+      let months = now.getMonth() - start.getMonth();
+      let days = now.getDate() - start.getDate();
+      if (days < 0) {
+        months -= 1;
+        const previousMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        days += previousMonth.getDate();
+      }
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
+      const parts = [];
+      if (years > 0) parts.push(`${years} 年`);
+      if (months > 0) parts.push(`${months} 个月`);
+      parts.push(`${days} 天`);
+      return { label: parts.join(" "), totalDays };
+    }
+
+    function renderProfile(user) {
+      const age = calculateAge(user.created_at);
+      const displayName = user.name || user.login;
+      els.avatar.src = user.avatar_url;
+      els.avatar.alt = `${displayName} 的头像`;
+      els.displayName.textContent = displayName;
+      els.login.textContent = `@${user.login}`;
+      els.profileLink.href = user.html_url;
+      els.ageValue.textContent = age.label;
+      els.ageDays.textContent = `共 ${formatNumber(age.totalDays)} 天`;
+      els.publicRepos.textContent = formatNumber(user.public_repos);
+      els.followers.textContent = formatNumber(user.followers);
+      els.following.textContent = formatNumber(user.following);
+      els.publicGists.textContent = formatNumber(user.public_gists);
+      els.createdAt.textContent = formatDate(user.created_at);
+      els.updatedAt.textContent = formatDate(user.updated_at);
+      els.accountType.textContent = user.type || "-";
+      els.location.textContent = user.location || "-";
+      emptyState.style.display = "none";
+      profile.classList.add("visible");
+    }
+
+    async function lookup(username) {
+      const normalized = normalizeUsername(username);
+      if (!normalized) {
+        setStatus("请输入 GitHub 用户名。", "error");
+        input.focus();
+        return;
+      }
+      if (!usernamePattern.test(normalized)) {
+        setStatus("用户名格式不正确。只能包含字母、数字、连字符，且不能以连字符开头或结尾。", "error");
+        input.focus();
+        return;
+      }
+
+      submitButton.disabled = true;
+      submitButton.textContent = "查询中";
+      setStatus(`正在查询 ${normalized} ...`);
+
+      try {
+        // 修改点：请求本地代理端点
+        const response = await fetch(`/api/github?username=${encodeURIComponent(normalized)}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `请求失败（HTTP ${response.status}）`);
+        }
+        const user = await response.json();
+        renderProfile(user);
+        setStatus(`已查询到 ${user.login} 的公开资料。`);
+      } catch (error) {
+        setStatus(error.message || "查询失败，请稍后再试。", "error");
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "查询";
+      }
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      lookup(input.value);
+    });
+
+    examples.forEach((button) => {
+      button.addEventListener("click", () => {
+        input.value = button.dataset.user;
+        lookup(button.dataset.user);
+      });
+    });
+  </script>
+</body>
+</html>
