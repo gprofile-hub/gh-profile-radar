@@ -35,26 +35,24 @@ export async function onRequest(context) {
 
     // 处理 403
     if (response.status === 403) {
-      let errorMessage = 'GitHub API 拒绝访问。';
-      let rateLimitInfo = '';
+      let rawMessage = '';
       try {
         const errorData = await response.json();
-        if (errorData.message) {
-          errorMessage = errorData.message;
-          // 检测是否为速率限制
-          if (errorMessage.toLowerCase().includes('rate limit')) {
-            if (hasToken) {
-              rateLimitInfo = '已认证，但可能触及了频率限制（5000次/小时），请稍后再试，或检查令牌是否有效。';
-            } else {
-              rateLimitInfo = '未认证请求频率限制为 60 次/小时，请等待一小时恢复，或配置 GITHUB_TOKEN 环境变量提升限额至 5000 次/小时。';
-            }
-          }
-        }
+        rawMessage = errorData.message || '';
       } catch (_) {
-        // 解析失败则忽略
+        rawMessage = response.statusText || '';
       }
 
-      const finalMessage = rateLimitInfo || errorMessage;
+      let userFriendly = '';
+      if (hasToken) {
+        userFriendly = '已配置令牌但请求被拒。请检查：\n1. 令牌是否有效且未过期\n2. 是否达到 5000 次/小时限制\n3. 若未设置任何权限，仅读取公开信息无需额外授权';
+      } else {
+        userFriendly = '未配置认证令牌，GitHub 未认证请求限制为 60 次/小时。\n建议：等待一小时后恢复，或在 Cloudflare Pages 环境变量中设置 GITHUB_TOKEN 提升限额至 5000 次/小时。';
+      }
+
+      // 如果原始消息包含具体信息，拼接在后面
+      const finalMessage = rawMessage ? `${userFriendly}\n（API 返回：${rawMessage}）` : userFriendly;
+
       return new Response(JSON.stringify({ error: finalMessage }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' }
