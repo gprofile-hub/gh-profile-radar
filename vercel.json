@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "functions": {
+    "api/github.js": {
+      "runtime": "edge"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/github",
+      "dest": "/api/github.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "GITHUB_TOKEN": "@github_token"
+  }
+}

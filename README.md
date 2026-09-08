@@ -151,6 +151,67 @@ gh-profile-radar/
 
 ---
 
+
+---
+
+## ☁️ 部署到 Vercel（替代方案）
+
+除 Cloudflare Pages 外，本项目同样支持部署到 **[Vercel](https://vercel.com/)**，适合已有 Vercel 工作流的用户。
+
+### 前置要求
+
+- 一个 [GitHub](https://github.com) 账号
+- 一个 [Vercel](https://vercel.com/) 账号（免费版即可）
+
+### 步骤
+
+1. **Fork 本仓库**
+
+2. **（可选）生成 GitHub Personal Access Token**
+
+   访问 <https://github.com/settings/tokens> → **Generate new token (classic)**，无需勾选任何权限，生成后复制令牌。
+
+3. **在 Vercel 中导入项目**
+
+   登录 [Vercel Dashboard](https://vercel.com/dashboard) → **Add New Project** → 选择你 Fork 后的仓库 → **Import**。
+
+4. **配置环境变量（重要）**
+
+   在 **Environment Variables** 部分添加：
+
+   | 变量名 | 值 |
+   |---|---|
+   | `GITHUB_TOKEN` | 粘贴你的 Personal Access Token（可选，留空则限额 60 次/小时） |
+
+5. **点击 Deploy**
+
+   Vercel 会自动读取项目根目录的 `vercel.json`，完成路由和函数配置后一键发布，几分钟内即可通过专属域名访问。
+
+### 本地预览（可选）
+
+```bash
+npm i -g vercel
+vercel dev
+```
+
+默认在 `http://localhost:3000` 启动，环境变量通过 `.env.local` 加载：
+
+```
+GITHUB_TOKEN=your_personal_access_token
+```
+
+### 与 Cloudflare Pages 的差异
+
+| 对比项 | Cloudflare Pages | Vercel |
+|---|---|---|
+| 后端运行时 | Pages Functions (Workers) | Serverless / Edge Function |
+| API 文件位置 | `functions/api/github.js` | `api/github.js` |
+| 环境变量配置 | Cloudflare Dashboard → Environment variables | Vercel Dashboard → Environment Variables |
+| 全球节点 | Cloudflare 边缘网络 | Vercel Edge Network |
+| 免费额度 | 100,000 请求/天 | 100 GB 带宽/月 + 100,000 函数调用/天 |
+
+> 💡 两种部署方式均已支持，选择你更熟悉的平台即可。
+
 ## 🙏 致谢
 
 - [GitHub API](https://docs.github.com/en/rest) 提供的丰富数据接口
