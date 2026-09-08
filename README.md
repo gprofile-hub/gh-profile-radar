@@ -22,6 +22,8 @@
 
 ## 🖥️ 在线演示
 
+<img width="1919" height="932" alt="image" src="https://github.com/user-attachments/assets/f9c60e08-2f93-42a0-9f1a-564e522df3cf" />
+
 访问 [https://gh-profile-radar.pages.dev](https://gh-profile-radar.pages.dev) 即可体验（由作者部署，可能会因频率限制暂时不可用）。
 
 ---
