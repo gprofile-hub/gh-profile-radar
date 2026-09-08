@@ -11,13 +11,13 @@ export async function onRequest(context) {
     });
   }
 
-  // 从环境变量获取令牌
   const token = env.GITHUB_TOKEN || '';
+  const hasToken = !!token;
 
   const headers = {
     'Accept': 'application/vnd.github+json',
   };
-  if (token) {
+  if (hasToken) {
     headers['Authorization'] = `token ${token}`;
   }
 
@@ -25,6 +25,7 @@ export async function onRequest(context) {
     const apiUrl = `https://api.github.com/users/${encodeURIComponent(username)}`;
     const response = await fetch(apiUrl, { headers });
 
+    // 处理 404
     if (response.status === 404) {
       return new Response(JSON.stringify({ error: '没有找到这个 GitHub 用户。' }), {
         status: 404,
@@ -32,15 +33,35 @@ export async function onRequest(context) {
       });
     }
 
+    // 处理 403
     if (response.status === 403) {
-      const errorData = await response.json().catch(() => ({}));
-      const message = errorData.message || 'GitHub API 拒绝访问，请检查令牌是否有效。';
-      return new Response(JSON.stringify({ error: message }), {
+      let errorMessage = 'GitHub API 拒绝访问。';
+      let rateLimitInfo = '';
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+          // 检测是否为速率限制
+          if (errorMessage.toLowerCase().includes('rate limit')) {
+            if (hasToken) {
+              rateLimitInfo = '已认证，但可能触及了频率限制（5000次/小时），请稍后再试，或检查令牌是否有效。';
+            } else {
+              rateLimitInfo = '未认证请求频率限制为 60 次/小时，请等待一小时恢复，或配置 GITHUB_TOKEN 环境变量提升限额至 5000 次/小时。';
+            }
+          }
+        }
+      } catch (_) {
+        // 解析失败则忽略
+      }
+
+      const finalMessage = rateLimitInfo || errorMessage;
+      return new Response(JSON.stringify({ error: finalMessage }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
+    // 其他非 2xx 状态
     if (!response.ok) {
       const errorText = await response.text();
       return new Response(JSON.stringify({ error: `GitHub API 异常 (${response.status}): ${errorText}` }), {
